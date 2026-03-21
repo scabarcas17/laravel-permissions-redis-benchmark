@@ -54,7 +54,7 @@ Both packages operate on the **same database tables** and the **same user data**
 ## Quick Start with Docker
 
 ```bash
-git clone https://github.com/scabarcas/laravel-permissions-redis-benchmark.git
+git clone https://github.com/scabarcas17/laravel-permissions-redis-benchmark.git
 cd laravel-permissions-redis-benchmark
 docker compose up -d
 ```
@@ -72,7 +72,7 @@ Open **http://localhost:8080** in your browser.
 ### Setup
 
 ```bash
-git clone https://github.com/scabarcas/laravel-permissions-redis-benchmark.git
+git clone https://github.com/scabarcas17/laravel-permissions-redis-benchmark.git
 cd laravel-permissions-redis-benchmark
 
 composer install
