@@ -1,6 +1,6 @@
 # Laravel Permissions Benchmark
 
-A side-by-side benchmark comparing database query performance between [spatie/laravel-permission](https://github.com/spatie/laravel-permission) and [scabarcas/laravel-permissions-redis](https://github.com/scabarcas/laravel-permissions-redis).
+A side-by-side benchmark comparing database query performance between [spatie/laravel-permission](https://github.com/spatie/laravel-permission) and [scabarcas/laravel-permissions-redis](https://github.com/scabarcas17/laravel-permissions-redis).
 
 ## Results
 
