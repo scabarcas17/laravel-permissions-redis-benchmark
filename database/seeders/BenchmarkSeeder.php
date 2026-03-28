@@ -1,8 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
-use App\Models\RedisUser;
+use App\Benchmark\BenchmarkRunner;
 use App\Models\SpatieUser;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -10,14 +12,13 @@ use Illuminate\Support\Facades\Hash;
 use Scabarcas\LaravelPermissionsRedis\Cache\AuthorizationCacheManager;
 use Scabarcas\LaravelPermissionsRedis\Models\Permission as RedisPermission;
 use Scabarcas\LaravelPermissionsRedis\Models\Role as RedisRole;
-use Spatie\Permission\Models\Permission as SpatiePermission;
-use Spatie\Permission\Models\Role as SpatieRole;
+use Spatie\Permission\PermissionRegistrar;
 
 class BenchmarkSeeder extends Seeder
 {
     public function run(): void
     {
-        $user = DB::table('users')->insertGetId([
+        $userId = DB::table('users')->insertGetId([
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => Hash::make('password'),
@@ -25,48 +26,56 @@ class BenchmarkSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        $permissions = [
-            'users.view', 'users.create', 'users.edit', 'users.delete',
-            'posts.view', 'posts.create', 'posts.edit', 'posts.delete',
-            'comments.view', 'comments.create', 'comments.edit', 'comments.delete',
-            'categories.view', 'categories.create', 'categories.edit', 'categories.delete',
-            'tags.view', 'tags.create', 'tags.edit', 'tags.delete',
-            'settings.view', 'settings.edit',
-            'reports.view', 'reports.export',
-            'dashboard.view',
-            'media.upload', 'media.delete',
-        ];
+        $this->createPermissionsAndRoles();
 
-        foreach ($permissions as $perm) {
-            SpatiePermission::create(['name' => $perm, 'guard_name' => 'web']);
+        // Spatie maintains its own permission cache — flush it so it
+        // picks up the rows created via the Redis package models.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->assignUserRoles($userId);
+
+        app(AuthorizationCacheManager::class)->warmUser($userId);
+
+        $this->command->info(
+            sprintf('Seeded: 1 user, %d permissions, 3 roles', count(BenchmarkRunner::PERMISSIONS))
+        );
+    }
+
+    private function createPermissionsAndRoles(): void
+    {
+        foreach (BenchmarkRunner::PERMISSIONS as $perm) {
+            RedisPermission::findOrCreate($perm, 'web');
         }
 
-        $admin = SpatieRole::create(['name' => 'admin', 'guard_name' => 'web']);
-        $editor = SpatieRole::create(['name' => 'editor', 'guard_name' => 'web']);
-        $viewer = SpatieRole::create(['name' => 'viewer', 'guard_name' => 'web']);
+        $admin = RedisRole::findOrCreate('admin', 'web');
+        $editor = RedisRole::findOrCreate('editor', 'web');
+        $viewer = RedisRole::findOrCreate('viewer', 'web');
 
-        $admin->syncPermissions(SpatiePermission::all());
+        $admin->syncPermissions(BenchmarkRunner::PERMISSIONS);
 
-        $editor->syncPermissions(SpatiePermission::whereIn('name', [
+        $editor->syncPermissions([
             'posts.view', 'posts.create', 'posts.edit',
             'comments.view', 'comments.create', 'comments.edit',
             'categories.view', 'tags.view', 'tags.create',
             'media.upload', 'dashboard.view',
-        ])->get());
+        ]);
 
-        $viewer->syncPermissions(SpatiePermission::whereIn('name', [
+        $viewer->syncPermissions([
             'users.view', 'posts.view', 'comments.view',
             'categories.view', 'tags.view', 'dashboard.view',
-        ])->get());
+        ]);
+    }
 
-        $spatieUser = SpatieUser::find($user);
-        $spatieUser->assignRole('admin', 'editor');
-
-        $spatieUser->givePermissionTo('reports.export');
-
-        $redisUser = RedisUser::find($user);
-        app(AuthorizationCacheManager::class)->warmUser($user);
-
-        $this->command->info("Seeded: 1 user, " . count($permissions) . " permissions, 3 roles");
+    /**
+     * Assign roles via Spatie's trait because it writes model_type using
+     * getMorphClass() → 'App\Models\User'.  The Redis cache manager also
+     * reads with that same model type (from config 'permissions-redis.user_model'),
+     * so both packages resolve the same pivot rows.
+     */
+    private function assignUserRoles(int $userId): void
+    {
+        $user = SpatieUser::find($userId);
+        $user->assignRole('admin', 'editor');
+        $user->givePermissionTo('reports.export');
     }
 }
