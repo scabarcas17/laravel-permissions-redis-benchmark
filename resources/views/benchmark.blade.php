@@ -16,15 +16,26 @@
         ];
 
         $maxQueries = max(1, ...array_map(fn ($r) => $r->queryCount, $results));
-        $maxTime = max(0.01, ...array_map(fn ($r) => $r->timeMs, $results));
+        $maxTime = max(0.01, ...array_map(fn ($r) => $r->timeP50, $results));
         $reference = $results[0] ?? null;
     @endphp
 
     <div class="max-w-6xl mx-auto">
         <h1 class="text-3xl font-bold text-gray-800 mb-2">Permissions Benchmark</h1>
-        <p class="text-gray-500 mb-6">
+        <p class="text-gray-500 mb-4">
             {{ collect($results)->pluck('label')->join(' vs ') }}
         </p>
+
+        {{-- Methodology pill --}}
+        @if($reference)
+            <div class="mb-6 inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-full border border-indigo-200">
+                <span>{{ $reference->warmUpRuns }} warm-up + {{ $reference->measurementRuns }} measurement runs per strategy</span>
+                <span class="text-indigo-300">·</span>
+                <span>GC reset before each run</span>
+                <span class="text-indigo-300">·</span>
+                <span>Spatie cache flushed before warm-up</span>
+            </div>
+        @endif
 
         {{-- Iteration selector --}}
         <div class="mb-6 flex gap-2">
@@ -48,12 +59,20 @@
                             <span class="text-2xl font-bold {{ $c['text'] }}">{{ $result->queryCount }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Time</span>
-                            <span class="text-2xl font-bold {{ $c['text'] }}">{{ $result->timeMs }} ms</span>
+                            <span class="text-gray-500">Median (p50)</span>
+                            <span class="text-2xl font-bold {{ $c['text'] }}">{{ number_format($result->timeP50, 2) }} ms</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">p95 / p99</span>
+                            <span class="font-mono text-gray-600">{{ number_format($result->timeP95, 2) }} / {{ number_format($result->timeP99, 2) }} ms</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-400">Mean ± StdDev</span>
+                            <span class="font-mono text-gray-600">{{ number_format($result->timeMean, 2) }} ± {{ number_format($result->timeStdDev, 2) }} ms</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-500">Iterations</span>
-                            <span class="font-medium">{{ $iterations }}</span>
+                            <span class="text-gray-500">Iterations / Runs</span>
+                            <span class="font-medium">{{ $iterations }} × {{ $result->measurementRuns }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">Checks per iteration</span>
@@ -102,21 +121,21 @@
             @endif
         </div>
 
-        {{-- Time comparison bars --}}
+        {{-- Time comparison bars (median p50) --}}
         <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-            <h3 class="text-lg font-semibold mb-4">Time Comparison</h3>
-            <div class="space-y-4">
+            <h3 class="text-lg font-semibold mb-1">Time Comparison <span class="text-sm font-normal text-gray-400">(median across runs)</span></h3>
+            <div class="space-y-4 mt-4">
                 @foreach($results as $result)
                     @php $c = $colorMap[$result->color] ?? $colorMap['blue']; @endphp
                     <div>
                         <div class="flex justify-between text-sm mb-1">
                             <span class="{{ $c['text'] }} font-medium">{{ $result->label }}</span>
-                            <span>{{ number_format($result->timeMs, 2) }} ms</span>
+                            <span>{{ number_format($result->timeP50, 2) }} ms <span class="text-gray-400">(p95 {{ number_format($result->timeP95, 2) }}, p99 {{ number_format($result->timeP99, 2) }})</span></span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-6">
                             <div class="{{ $c['bg'] }} h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
-                                 style="width: {{ max(($result->timeMs / $maxTime) * 100, 2) }}%; min-width: 2rem">
-                                {{ number_format($result->timeMs, 2) }} ms
+                                 style="width: {{ max(($result->timeP50 / $maxTime) * 100, 2) }}%; min-width: 2rem">
+                                {{ number_format($result->timeP50, 2) }} ms
                             </div>
                         </div>
                     </div>
@@ -125,18 +144,18 @@
 
             @if($reference && count($results) >= 2)
                 @php
-                    $timeSavings = $reference->timeMs > 0
-                        ? round((1 - $results[1]->timeMs / $reference->timeMs) * 100, 1)
+                    $timeSavings = $reference->timeP50 > 0
+                        ? round((1 - $results[1]->timeP50 / $reference->timeP50) * 100, 1)
                         : 0;
-                    $speedup = $results[1]->timeMs > 0
-                        ? round($reference->timeMs / $results[1]->timeMs, 2)
+                    $speedup = $results[1]->timeP50 > 0
+                        ? round($reference->timeP50 / $results[1]->timeP50, 2)
                         : 0;
                 @endphp
                 <p class="mt-4 text-lg">
                     @if($timeSavings > 0)
                         <span class="text-green-600 font-bold">{{ $speedup }}x faster</span>
-                        ({{ $timeSavings }}% less time) with {{ $results[1]->label }}
-                    @elseif($reference->timeMs == 0)
+                        ({{ $timeSavings }}% less median time) with {{ $results[1]->label }}
+                    @elseif($reference->timeP50 == 0)
                         <span class="text-gray-500">No time recorded</span>
                     @endif
                 </p>
@@ -196,7 +215,7 @@
                 @php $c = $colorMap[$result->color] ?? $colorMap['blue']; @endphp
                 <div class="bg-white rounded-xl shadow-md p-6">
                     <h3 class="text-lg font-semibold {{ $c['text'] }} mb-3">
-                        {{ $result->label }} Query Log ({{ $result->queryCount }})
+                        {{ $result->label }} Query Log <span class="text-sm font-normal text-gray-400">({{ $result->queryCount }} per run)</span>
                     </h3>
                     <div class="space-y-2 max-h-96 overflow-y-auto">
                         @forelse($result->queryLog as $i => $q)

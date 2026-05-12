@@ -6,36 +6,52 @@ Tested against:
 - `scabarcas/laravel-permissions-redis` **v4.0.0-beta.2** (resolved from `dev-main` via the VCS repository in `composer.json`)
 - `spatie/laravel-permission` **^7.2**
 
-## Methodology caveat
+## Methodology
 
-> Single-shot timing on local SQLite + Redis. Numbers are reproducible on the same machine but not directly comparable across hosts (CPU, OS, Redis latency vary). For production-grade numbers run the bench on a target-like environment with multiple iterations and look at the trend, not absolute ms.
+For each iteration count we run **5 warm-up runs** (discarded) plus **30 measurement runs**, calling `gc_collect_cycles()` before every measurement so memory state doesn't drift run-to-run. Spatie's permission cache is flushed once before warm-up so both strategies start from the same baseline; from there each measurement run sees steady-state behaviour (cache hot for both packages).
+
+We report **p50 (median), p95, p99, mean, and stddev** of wall-clock time. Numbers come from `php artisan bench:markdown --warm=5 --runs=30` on Apple Silicon, PHP 8.4, predis client, SQLite + local Redis. Reproducible on the same machine; not directly comparable across hosts.
+
+Run yourself:
+
+```bash
+php artisan migrate:fresh --seed --seeder=BenchmarkSeeder
+php artisan bench:markdown --warm=5 --runs=30
+```
 
 ## Results
-
-Generated with `php artisan bench:markdown` against SQLite + Redis on Apple Silicon, PHP 8.4, predis client. `PermissionRegistrar::forgetCachedPermissions()` is called before each group so Spatie starts cold each time (matching per-request semantics).
 
 ### 1 Iteration (27 permission checks + 4 role checks + 2 collection calls)
 
 | Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
 |--------|:---:|:---:|:---:|
-| **DB Queries** | 6 | 1 | **83.3% fewer** |
-| **Time** | 33.52 ms | 13.07 ms | **2.56x faster** |
+| **DB Queries** | 4 | 1 | **75% fewer** |
+| **Median (p50)** | 13.76 ms | 1.26 ms | **10.94x faster** |
+| **p95** | 13.97 ms | 1.30 ms | — |
+| **p99** | 13.98 ms | 1.32 ms | — |
+| **Mean ± StdDev** | 13.77 ± 0.12 ms | 1.26 ± 0.02 ms | — |
 
-### 10 Iterations (27 permission checks + 4 role checks + 2 collection calls)
-
-| Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
-|--------|:---:|:---:|:---:|
-| **DB Queries** | 42 | 10 | **76.2% fewer** |
-| **Time** | 143.00 ms | 12.29 ms | **11.64x faster** |
-
-### 50 Iterations (27 permission checks + 4 role checks + 2 collection calls)
+### 10 Iterations
 
 | Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
 |--------|:---:|:---:|:---:|
-| **DB Queries** | 202 | 50 | **75.2% fewer** |
-| **Time** | 679.11 ms | 61.76 ms | **11x faster** |
+| **DB Queries** | 40 | 10 | **75% fewer** |
+| **Median (p50)** | 138.87 ms | 13.01 ms | **10.68x faster** |
+| **p95** | 140.13 ms | 13.78 ms | — |
+| **p99** | 159.27 ms | 13.87 ms | — |
+| **Mean ± StdDev** | 139.42 ± 3.86 ms | 13.11 ± 0.45 ms | — |
 
-> **What's happening**: Spatie caches the *global* permission/role registry (which permissions exist), but the *user's* role and permission relations are loaded via Eloquent on every `User::find()` — roughly 4 DB queries per authorization-heavy request. The Redis package keeps the full user-to-roles-to-permissions mapping in Redis, so the only DB query left is the `SELECT * FROM users` lookup itself (1 per request). The wall-clock delta grows with iterations because Redis lookups are near-constant time while Spatie's relation hydration scales with each new user instance.
+### 50 Iterations
+
+| Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
+|--------|:---:|:---:|:---:|
+| **DB Queries** | 200 | 50 | **75% fewer** |
+| **Median (p50)** | 696.73 ms | 63.79 ms | **10.92x faster** |
+| **p95** | 700.08 ms | 64.26 ms | — |
+| **p99** | 700.83 ms | 64.36 ms | — |
+| **Mean ± StdDev** | 696.46 ± 2.68 ms | 63.79 ± 0.29 ms | — |
+
+> **What's happening**: Spatie caches the *global* permission/role registry (which permissions exist), but the *user's* role and permission relations are loaded via Eloquent on every `User::find()` — exactly 4 DB queries per authorization-heavy request. The Redis package keeps the full user-to-roles-to-permissions mapping in Redis, so the only DB query left is the `SELECT * FROM users` lookup itself (1 per request). The speedup is consistent at **~10–11x median** across all iteration counts because both strategies scale linearly — the *constant* per the iteration is what differs (4 DB queries vs 1 Redis lookup).
 
 ## Screenshots
 
@@ -123,9 +139,10 @@ The current harness only exercises `hasPermissionTo`, `hasRole`, `getAllPermissi
 - Group invalidation semantics introduced in v4
 - The atomic warm flow (`warmUser` / `warmAll`)
 - Octane request lifecycle (no Roadrunner / Swoole)
-- Multiple users in parallel (single-shot, single-user)
+- Multiple users in parallel (single-user under load)
+- Multiple DB engines (SQLite only — MySQL / Postgres would show different absolute numbers)
 
-If you want apples-to-apples production numbers (p50/p95/p99 under concurrency, multiple DB engines, Octane), this bench is a starting point — not the final word.
+For concurrent-load numbers, multi-DB-engine comparisons, or Octane-specific behaviour, you'll need to extend this harness or pair it with a load generator (k6, wrk, etc.).
 
 ## License
 

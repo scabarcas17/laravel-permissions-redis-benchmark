@@ -16,12 +16,21 @@ class BenchmarkController extends Controller
 
     public function __invoke(Request $request): View
     {
-        $iterations = (int) $request->query('iterations', 1);
+        $iterations = max(1, (int) $request->query('iterations', 1));
+        $warmUpRuns = max(0, (int) $request->query('warm', BenchmarkRunner::DEFAULT_WARM_UP_RUNS));
+        $measurementRuns = max(1, (int) $request->query('runs', BenchmarkRunner::DEFAULT_MEASUREMENT_RUNS));
 
         return view('benchmark', [
             'iterations' => $iterations,
+            'warmUpRuns' => $warmUpRuns,
+            'measurementRuns' => $measurementRuns,
             'permissionsChecked' => count(BenchmarkRunner::PERMISSIONS),
-            'results' => $this->runner->execute(userId: 1, iterations: $iterations),
+            'results' => $this->runner->execute(
+                userId: 1,
+                iterations: $iterations,
+                warmUpRuns: $warmUpRuns,
+                measurementRuns: $measurementRuns,
+            ),
         ]);
     }
 }
