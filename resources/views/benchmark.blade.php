@@ -16,6 +16,7 @@
         ];
 
         $maxQueries = max(1, ...array_map(fn ($r) => $r->queryCount, $results));
+        $maxTime = max(0.01, ...array_map(fn ($r) => $r->timeMs, $results));
         $reference = $results[0] ?? null;
     @endphp
 
@@ -96,6 +97,47 @@
                         with {{ $results[1]->label }}
                     @elseif($reference->queryCount === 0)
                         <span class="text-gray-500">No queries recorded</span>
+                    @endif
+                </p>
+            @endif
+        </div>
+
+        {{-- Time comparison bars --}}
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h3 class="text-lg font-semibold mb-4">Time Comparison</h3>
+            <div class="space-y-4">
+                @foreach($results as $result)
+                    @php $c = $colorMap[$result->color] ?? $colorMap['blue']; @endphp
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="{{ $c['text'] }} font-medium">{{ $result->label }}</span>
+                            <span>{{ number_format($result->timeMs, 2) }} ms</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-6">
+                            <div class="{{ $c['bg'] }} h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
+                                 style="width: {{ max(($result->timeMs / $maxTime) * 100, 2) }}%; min-width: 2rem">
+                                {{ number_format($result->timeMs, 2) }} ms
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            @if($reference && count($results) >= 2)
+                @php
+                    $timeSavings = $reference->timeMs > 0
+                        ? round((1 - $results[1]->timeMs / $reference->timeMs) * 100, 1)
+                        : 0;
+                    $speedup = $results[1]->timeMs > 0
+                        ? round($reference->timeMs / $results[1]->timeMs, 2)
+                        : 0;
+                @endphp
+                <p class="mt-4 text-lg">
+                    @if($timeSavings > 0)
+                        <span class="text-green-600 font-bold">{{ $speedup }}x faster</span>
+                        ({{ $timeSavings }}% less time) with {{ $results[1]->label }}
+                    @elseif($reference->timeMs == 0)
+                        <span class="text-gray-500">No time recorded</span>
                     @endif
                 </p>
             @endif

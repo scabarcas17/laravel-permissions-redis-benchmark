@@ -3366,12 +3366,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/scabarcas17/laravel-permissions-redis.git",
-                "reference": "c895fa940dfe2e7ada08ca861e9d3aa851df93c8"
+                "reference": "63f94ca48766e7e3f0a920600332a1ed649a0504"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scabarcas17/laravel-permissions-redis/zipball/c895fa940dfe2e7ada08ca861e9d3aa851df93c8",
-                "reference": "c895fa940dfe2e7ada08ca861e9d3aa851df93c8",
+                "url": "https://api.github.com/repos/scabarcas17/laravel-permissions-redis/zipball/63f94ca48766e7e3f0a920600332a1ed649a0504",
+                "reference": "63f94ca48766e7e3f0a920600332a1ed649a0504",
                 "shasum": ""
             },
             "require": {
@@ -3385,10 +3385,11 @@
             "require-dev": {
                 "larastan/larastan": "^3",
                 "laravel/framework": "^12.0|^13.0",
-                "laravel/pint": "^1.29",
+                "laravel/pint": "1.29.1",
                 "orchestra/testbench": "^10.11|^11.0",
                 "pestphp/pest": "^4.4",
-                "phpstan/phpstan": "^2.1"
+                "phpstan/phpstan": "^2.1",
+                "predis/predis": "^3.4"
             },
             "default-branch": true,
             "type": "library",
@@ -3413,11 +3414,17 @@
                 "test": [
                     "pest"
                 ],
+                "test:coverage": [
+                    "pest --coverage --min=80"
+                ],
                 "format": [
                     "pint"
                 ],
                 "analyse": [
                     "phpstan analyse"
+                ],
+                "mutate": [
+                    "infection --threads=4 --show-mutations"
                 ]
             },
             "license": [
@@ -3432,19 +3439,30 @@
             ],
             "description": "A Redis-powered roles and permissions package for Laravel designed to eliminate repetitive database queries and deliver high-performance authorization.",
             "keywords": [
+                "access-control",
+                "acl",
                 "authorization",
                 "cache",
+                "guard",
                 "laravel",
+                "middleware",
                 "performance",
                 "permissions",
+                "rbac",
                 "redis",
                 "roles"
             ],
             "support": {
-                "source": "https://github.com/scabarcas17/laravel-permissions-redis/tree/v2.0.0",
+                "source": "https://github.com/scabarcas17/laravel-permissions-redis/tree/v4.0.0-beta.2",
                 "issues": "https://github.com/scabarcas17/laravel-permissions-redis/issues"
             },
-            "time": "2026-03-27T22:23:28+00:00"
+            "funding": [
+                {
+                    "type": "github",
+                    "url": "https://github.com/scabarcas17"
+                }
+            ],
+            "time": "2026-04-27T16:08:10+00:00"
         },
         {
             "name": "symfony/clock",
