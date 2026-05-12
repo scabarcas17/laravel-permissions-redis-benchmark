@@ -21,37 +21,37 @@ php artisan bench:markdown --warm=5 --runs=30
 
 ## Results
 
-### 1 Iteration (27 permission checks + 4 role checks + 2 collection calls)
+### 1 Iteration (27 permission checks + 4 role checks + 4 batch ops + 2 collection calls)
 
 | Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
 |--------|:---:|:---:|:---:|
 | **DB Queries** | 4 | 1 | **75% fewer** |
-| **Median (p50)** | 13.76 ms | 1.26 ms | **10.94x faster** |
-| **p95** | 13.97 ms | 1.30 ms | — |
-| **p99** | 13.98 ms | 1.32 ms | — |
-| **Mean ± StdDev** | 13.77 ± 0.12 ms | 1.26 ± 0.02 ms | — |
+| **Median (p50)** | 14.27 ms | 1.44 ms | **9.92x faster** |
+| **p95** | 14.53 ms | 1.48 ms | — |
+| **p99** | 14.56 ms | 1.52 ms | — |
+| **Mean ± StdDev** | 14.30 ± 0.12 ms | 1.44 ± 0.02 ms | — |
 
 ### 10 Iterations
 
 | Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
 |--------|:---:|:---:|:---:|
 | **DB Queries** | 40 | 10 | **75% fewer** |
-| **Median (p50)** | 138.87 ms | 13.01 ms | **10.68x faster** |
-| **p95** | 140.13 ms | 13.78 ms | — |
-| **p99** | 159.27 ms | 13.87 ms | — |
-| **Mean ± StdDev** | 139.42 ± 3.86 ms | 13.11 ± 0.45 ms | — |
+| **Median (p50)** | 144.38 ms | 14.39 ms | **10.03x faster** |
+| **p95** | 146.20 ms | 14.57 ms | — |
+| **p99** | 147.13 ms | 14.58 ms | — |
+| **Mean ± StdDev** | 144.25 ± 1.09 ms | 14.39 ± 0.10 ms | — |
 
 ### 50 Iterations
 
 | Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |
 |--------|:---:|:---:|:---:|
 | **DB Queries** | 200 | 50 | **75% fewer** |
-| **Median (p50)** | 696.73 ms | 63.79 ms | **10.92x faster** |
-| **p95** | 700.08 ms | 64.26 ms | — |
-| **p99** | 700.83 ms | 64.36 ms | — |
-| **Mean ± StdDev** | 696.46 ± 2.68 ms | 63.79 ± 0.29 ms | — |
+| **Median (p50)** | 730.88 ms | 72.87 ms | **10.03x faster** |
+| **p95** | 742.99 ms | 74.81 ms | — |
+| **p99** | 743.94 ms | 75.08 ms | — |
+| **Mean ± StdDev** | 732.33 ± 5.35 ms | 72.96 ± 0.84 ms | — |
 
-> **What's happening**: Spatie caches the *global* permission/role registry (which permissions exist), but the *user's* role and permission relations are loaded via Eloquent on every `User::find()` — exactly 4 DB queries per authorization-heavy request. The Redis package keeps the full user-to-roles-to-permissions mapping in Redis, so the only DB query left is the `SELECT * FROM users` lookup itself (1 per request). The speedup is consistent at **~10–11x median** across all iteration counts because both strategies scale linearly — the *constant* per the iteration is what differs (4 DB queries vs 1 Redis lookup).
+> **What's happening**: Spatie caches the *global* permission/role registry (which permissions exist), but the *user's* role and permission relations are loaded via Eloquent on every `User::find()` — exactly 4 DB queries per authorization-heavy request. The Redis package keeps the full user-to-roles-to-permissions mapping in Redis, so the only DB query left is the `SELECT * FROM users` lookup itself (1 per request). The speedup is consistent at **~10x median** across all iteration counts because both strategies scale linearly — the *constant* per the iteration is what differs (4 DB queries vs 1 Redis lookup). Batch operations (`hasAnyRole`, `hasAllRoles`, `hasAnyPermission`, `hasAllPermissions`) resolve in PHP memory once the per-user relations are loaded, so they don't add queries — but they do contribute the same constant overhead to both packages.
 
 ## Screenshots
 
@@ -132,12 +132,11 @@ The benchmark uses two separate Eloquent User models pointing to the same `users
 
 ## What this bench does not cover yet
 
-The current harness only exercises `hasPermissionTo`, `hasRole`, `getAllPermissions`, and `getRoleNames` against a single user. It does **not** yet exercise:
+The current harness exercises `hasPermissionTo`, `hasRole`, `hasAnyRole`, `hasAllRoles`, `hasAnyPermission`, `hasAllPermissions`, `getAllPermissions`, and `getRoleNames` against a single user. It does **not** yet exercise:
 
-- The expanded `PermissionRepositoryInterface` from v4 (batch role checks like `userHasAnyRole`, `userHasAllRoles`)
-- Wildcard permission resolution (`posts.*`)
-- Group invalidation semantics introduced in v4
-- The atomic warm flow (`warmUser` / `warmAll`)
+- Wildcard permission resolution (`posts.*`) — both packages support it; needs a separate scenario with non-direct assignments
+- Group invalidation semantics introduced in v4 — measures mutation cost, separate harness
+- The atomic warm flow (`warmUser` / `warmAll`) — single-shot mutation, not iteration-driven
 - Octane request lifecycle (no Roadrunner / Swoole)
 - Multiple users in parallel (single-user under load)
 - Multiple DB engines (SQLite only — MySQL / Postgres would show different absolute numbers)

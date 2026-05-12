@@ -47,7 +47,7 @@ Artisan::command(
 
             $label = $n === 1 ? '1 Iteration' : "{$n} Iterations";
 
-            $this->line("### {$label} (27 permission checks + 4 role checks + 2 collection calls)");
+            $this->line("### {$label} (27 permission checks + 4 role checks + 4 batch ops + 2 collection calls)");
             $this->newLine();
             $this->line('| Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |');
             $this->line('|--------|:---:|:---:|:---:|');

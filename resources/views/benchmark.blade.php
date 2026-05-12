@@ -76,7 +76,7 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">Checks per iteration</span>
-                            <span class="font-medium">{{ $permissionsChecked }} perms + 4 roles + 2 collections</span>
+                            <span class="font-medium">{{ $permissionsChecked }} perms + 4 roles + 4 batch + 2 collections</span>
                         </div>
                     </div>
                 </div>

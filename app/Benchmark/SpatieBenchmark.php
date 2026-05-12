@@ -38,6 +38,11 @@ class SpatieBenchmark implements PermissionBenchmark
                 $user->hasRole($role);
             }
 
+            $user->hasAnyRole('admin', 'editor', 'viewer');
+            $user->hasAllRoles(['admin', 'editor']);
+            $user->hasAnyPermission('posts.view', 'posts.edit');
+            $user->hasAllPermissions('posts.view', 'posts.edit', 'reports.export');
+
             $user->getAllPermissions();
             $user->getRoleNames();
         }
