@@ -11,6 +11,12 @@ interface PermissionBenchmark
     public function color(): string;
 
     /**
+     * Reset per-request in-memory state so each benchmark iteration models a
+     * separate HTTP request (no PHP process memory carried over between requests).
+     */
+    public function resetPerRequest(): void;
+
+    /**
      * @param  list<string>  $permissions
      * @param  list<string>  $roles
      * @return array<string, bool>

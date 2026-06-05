@@ -14,7 +14,7 @@ Artisan::command(
         $list = array_map('intval', array_filter(explode(',', $iterations)));
         $runner = app(BenchmarkRunner::class);
 
-        $this->line("> Methodology: {$warm} warm-up + {$runs} measurement runs per strategy, GC reset before each run, Spatie cache flushed before warm-up.");
+        $this->line("> Methodology: {$warm} warm-up + {$runs} measurement runs per strategy, GC reset before each run. Each iteration models a separate request: per-request in-memory state is reset (Spatie cache flushed before warm-up; the Redis resolver's in-memory cache flushed per request) so the Redis package re-reads from Redis each request, as it would under PHP-FPM or Octane.");
         $this->newLine();
 
         foreach ($list as $n) {

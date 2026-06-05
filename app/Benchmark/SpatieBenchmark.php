@@ -19,11 +19,21 @@ class SpatieBenchmark implements PermissionBenchmark
         return 'orange';
     }
 
+    public function resetPerRequest(): void
+    {
+        // A fresh HTTP request gets a fresh user model (the find() below) while the
+        // permission registry stays warm in the cache store, which is how Spatie
+        // behaves per request with caching enabled. Nothing extra to reset here,
+        // and keeping the registry in memory is, if anything, favorable to Spatie.
+    }
+
     public function run(int $userId, array $permissions, array $roles, int $iterations): array
     {
         $results = [];
 
         for ($i = 0; $i < $iterations; $i++) {
+            $this->resetPerRequest();
+
             $user = SpatieUser::find($userId);
 
             foreach ($permissions as $perm) {

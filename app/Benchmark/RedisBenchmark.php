@@ -6,6 +6,7 @@ namespace App\Benchmark;
 
 use App\Benchmark\Contracts\PermissionBenchmark;
 use App\Models\RedisUser;
+use Scabarcas\LaravelPermissionsRedis\Contracts\PermissionResolverInterface;
 
 class RedisBenchmark implements PermissionBenchmark
 {
@@ -19,11 +20,22 @@ class RedisBenchmark implements PermissionBenchmark
         return 'green';
     }
 
+    public function resetPerRequest(): void
+    {
+        // A fresh HTTP request carries no PHP process memory, so drop the resolver's
+        // in-memory cache. Each request then re-reads the user's data from Redis.
+        // This matches PHP-FPM, and Octane (where this package resets in-memory
+        // state between requests). The Redis SETs themselves stay warm.
+        app(PermissionResolverInterface::class)->flush();
+    }
+
     public function run(int $userId, array $permissions, array $roles, int $iterations): array
     {
         $results = [];
 
         for ($i = 0; $i < $iterations; $i++) {
+            $this->resetPerRequest();
+
             $user = RedisUser::find($userId);
 
             foreach ($permissions as $perm) {
