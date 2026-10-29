@@ -16,7 +16,7 @@
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "predis/predis": "^3.4",
-        "scabarcas/laravel-permissions-redis": "dev-main"
+        "scabarcas/laravel-permissions-redis": "dev-feat/v4.3.0"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^4.1",

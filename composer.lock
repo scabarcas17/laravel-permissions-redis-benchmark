@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f56591e4ce68482a9fae47703ce6b181",
+    "content-hash": "327910c2cec2a824e1d751d493f80cc4",
     "packages": [
         {
             "name": "brick/math",
@@ -3362,16 +3362,16 @@
         },
         {
             "name": "scabarcas/laravel-permissions-redis",
-            "version": "dev-main",
+            "version": "dev-feat/v4.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/scabarcas17/laravel-permissions-redis.git",
-                "reference": "63f94ca48766e7e3f0a920600332a1ed649a0504"
+                "reference": "7709660612d5edeffc0a476d0e3ef60bb3f164f4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/scabarcas17/laravel-permissions-redis/zipball/63f94ca48766e7e3f0a920600332a1ed649a0504",
-                "reference": "63f94ca48766e7e3f0a920600332a1ed649a0504",
+                "url": "https://api.github.com/repos/scabarcas17/laravel-permissions-redis/zipball/7709660612d5edeffc0a476d0e3ef60bb3f164f4",
+                "reference": "7709660612d5edeffc0a476d0e3ef60bb3f164f4",
                 "shasum": ""
             },
             "require": {
@@ -3385,13 +3385,18 @@
             "require-dev": {
                 "larastan/larastan": "^3",
                 "laravel/framework": "^12.0|^13.0",
-                "laravel/pint": "1.29.1",
+                "laravel/pint": "1.32.1",
                 "orchestra/testbench": "^10.11|^11.0",
                 "pestphp/pest": "^4.4",
                 "phpstan/phpstan": "^2.1",
                 "predis/predis": "^3.4"
             },
-            "default-branch": true,
+            "suggest": {
+                "ext-redis": "Recommended Redis driver in production (phpredis)",
+                "laravel/octane": "The package resets its in-memory state between Octane requests",
+                "predis/predis": "Userland alternative when the phpredis extension is unavailable",
+                "stancl/tenancy": "Built-in tenant resolver for multi-tenant cache isolation"
+            },
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3437,7 +3442,7 @@
                     "role": "Developer"
                 }
             ],
-            "description": "A Redis-powered roles and permissions package for Laravel designed to eliminate repetitive database queries and deliver high-performance authorization.",
+            "description": "Redis-backed roles and permissions for Laravel with a Spatie-compatible API and per-user cache invalidation.",
             "keywords": [
                 "access-control",
                 "acl",
@@ -3453,16 +3458,17 @@
                 "roles"
             ],
             "support": {
-                "source": "https://github.com/scabarcas17/laravel-permissions-redis/tree/v4.0.0-beta.2",
-                "issues": "https://github.com/scabarcas17/laravel-permissions-redis/issues"
+                "issues": "https://github.com/scabarcas17/laravel-permissions-redis/issues",
+                "source": "https://github.com/scabarcas17/laravel-permissions-redis",
+                "docs": "https://github.com/scabarcas17/laravel-permissions-redis#readme"
             },
             "funding": [
                 {
                     "type": "github",
-                    "url": "https://github.com/scabarcas17"
+                    "url": "https://github.com/sponsors/scabarcas17"
                 }
             ],
-            "time": "2026-04-27T16:08:10+00:00"
+            "time": "2026-10-29T21:41:41+00:00"
         },
         {
             "name": "symfony/clock",
@@ -8621,5 +8627,5 @@
         "php": "^8.3"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
