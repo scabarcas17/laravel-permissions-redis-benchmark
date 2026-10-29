@@ -13,6 +13,7 @@
             'green'  => ['border' => 'border-green-500',  'text' => 'text-green-600',  'bg' => 'bg-green-500',  'code' => 'text-green-700'],
             'blue'   => ['border' => 'border-blue-500',   'text' => 'text-blue-600',   'bg' => 'bg-blue-500',   'code' => 'text-blue-700'],
             'purple' => ['border' => 'border-purple-500', 'text' => 'text-purple-600', 'bg' => 'bg-purple-500', 'code' => 'text-purple-700'],
+            'red'    => ['border' => 'border-red-500',    'text' => 'text-red-600',    'bg' => 'bg-red-500',    'code' => 'text-red-700'],
         ];
 
         $maxQueries = max(1, ...array_map(fn ($r) => $r->queryCount, $results));
@@ -34,6 +35,8 @@
                 <span>GC reset before each run</span>
                 <span class="text-indigo-300">·</span>
                 <span>Spatie cache flushed before warm-up</span>
+                <span class="text-indigo-300">·</span>
+                <span>Queries and Redis commands counted in one untimed run</span>
             </div>
         @endif
 
@@ -57,6 +60,10 @@
                         <div class="flex justify-between">
                             <span class="text-gray-500">DB Queries</span>
                             <span class="text-2xl font-bold {{ $c['text'] }}">{{ $result->queryCount }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Redis Commands</span>
+                            <span class="text-2xl font-bold {{ $c['text'] }}">{{ $result->redisCommandCount }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">Median (p50)</span>
@@ -92,7 +99,7 @@
                     <div>
                         <div class="flex justify-between text-sm mb-1">
                             <span class="{{ $c['text'] }} font-medium">{{ $result->label }}</span>
-                            <span>{{ $result->queryCount }} queries</span>
+                            <span>{{ $result->queryCount }} queries · {{ $result->redisCommandCount }} Redis commands</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-6">
                             <div class="{{ $c['bg'] }} h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-medium"
@@ -104,7 +111,7 @@
                 @endforeach
             </div>
 
-            @if($reference && count($results) >= 2)
+            @if($reference && count($results) === 2)
                 @php
                     $savings = $reference->queryCount > 0
                         ? round((1 - $results[1]->queryCount / $reference->queryCount) * 100, 1)
@@ -142,7 +149,7 @@
                 @endforeach
             </div>
 
-            @if($reference && count($results) >= 2)
+            @if($reference && count($results) === 2)
                 @php
                     $timeSavings = $reference->timeP50 > 0
                         ? round((1 - $results[1]->timeP50 / $reference->timeP50) * 100, 1)

@@ -20,6 +20,7 @@ readonly class BenchmarkResult
         public float $timeMean,
         public float $timeStdDev,
         public int $queryCount,
+        public int $redisCommandCount,
         public int $warmUpRuns,
         public int $measurementRuns,
         public array $rawTimesMs,

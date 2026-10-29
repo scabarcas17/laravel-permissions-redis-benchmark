@@ -3,6 +3,7 @@
 use App\Benchmark\BenchmarkRunner;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -14,7 +15,13 @@ Artisan::command(
         $list = array_map('intval', array_filter(explode(',', $iterations)));
         $runner = app(BenchmarkRunner::class);
 
-        $this->line("> Methodology: {$warm} warm-up + {$runs} measurement runs per strategy, GC reset before each run, Spatie cache flushed before warm-up.");
+        $this->line("> Methodology: per strategy, {$warm} warm-up runs, one untimed run that counts SQL queries and Redis commands, then {$runs} timed runs with logging off, GC reset before each. Each iteration models a separate request: a fresh user model and empty in-process caches, while Spatie's registry, the Cache::remember() entries and the Redis SETs stay warm.");
+        $this->line(sprintf(
+            '> Environment: PHP %s, %s database, Redis client %s.',
+            PHP_VERSION,
+            config('database.default'),
+            config('database.redis.client'),
+        ));
         $this->newLine();
 
         foreach ($list as $n) {
@@ -29,58 +36,62 @@ Artisan::command(
                 measurementRuns: $runs,
             );
 
-            if (count($results) < 2) {
-                $this->error('Need at least 2 strategies bound in AppServiceProvider.');
-
-                return;
-            }
-
-            [$spatie, $redis] = $results;
-
-            $queryDelta = $spatie->queryCount > 0
-                ? round((1 - $redis->queryCount / $spatie->queryCount) * 100, 1).'% fewer'
-                : '—';
-
-            $speedupP50 = $redis->timeP50 > 0
-                ? round($spatie->timeP50 / $redis->timeP50, 2).'x faster'
-                : '—';
-
             $label = $n === 1 ? '1 Iteration' : "{$n} Iterations";
 
             $this->line("### {$label} (27 permission checks + 4 role checks + 4 batch ops + 2 collection calls)");
             $this->newLine();
-            $this->line('| Metric | spatie/laravel-permission | scabarcas/laravel-permissions-redis | Delta |');
-            $this->line('|--------|:---:|:---:|:---:|');
-            $this->line(sprintf(
-                '| **DB Queries** | %d | %d | **%s** |',
-                $spatie->queryCount,
-                $redis->queryCount,
-                $queryDelta,
-            ));
-            $this->line(sprintf(
-                '| **Median (p50)** | %s ms | %s ms | **%s** |',
-                number_format($spatie->timeP50, 2),
-                number_format($redis->timeP50, 2),
-                $speedupP50,
-            ));
-            $this->line(sprintf(
-                '| **p95** | %s ms | %s ms | — |',
-                number_format($spatie->timeP95, 2),
-                number_format($redis->timeP95, 2),
-            ));
-            $this->line(sprintf(
-                '| **p99** | %s ms | %s ms | — |',
-                number_format($spatie->timeP99, 2),
-                number_format($redis->timeP99, 2),
-            ));
-            $this->line(sprintf(
-                '| **Mean ± StdDev** | %s ± %s ms | %s ± %s ms | — |',
-                number_format($spatie->timeMean, 2),
-                number_format($spatie->timeStdDev, 2),
-                number_format($redis->timeMean, 2),
-                number_format($redis->timeStdDev, 2),
-            ));
+            $this->line('| Strategy | DB queries | Redis commands | Median (p50) | p95 | p99 | Mean ± StdDev |');
+            $this->line('|----------|:---:|:---:|:---:|:---:|:---:|:---:|');
+
+            foreach ($results as $result) {
+                $this->line(sprintf(
+                    '| %s | %d | %d | %s ms | %s ms | %s ms | %s ± %s ms |',
+                    $result->label,
+                    $result->queryCount,
+                    $result->redisCommandCount,
+                    number_format($result->timeP50, 2),
+                    number_format($result->timeP95, 2),
+                    number_format($result->timeP99, 2),
+                    number_format($result->timeMean, 2),
+                    number_format($result->timeStdDev, 2),
+                ));
+            }
+
             $this->newLine();
+
+            $reference = $results[0];
+
+            foreach ($results as $result) {
+                if ($result->permissionResults !== $reference->permissionResults) {
+                    $this->error("{$result->label} answered differently from {$reference->label}.");
+                }
+            }
         }
     }
 )->purpose('Run the benchmark and print Markdown tables with percentile stats ready to paste into README.md');
+
+Artisan::command(
+    'bench:latency {ms : Delay added to every response from MySQL and Redis, in milliseconds; 0 removes it}',
+    function (int $ms) {
+        $api = rtrim((string) config('services.toxiproxy.url'), '/');
+
+        foreach (['mysql', 'redis'] as $proxy) {
+            // Missing when no delay was set before; a 404 here is expected.
+            Http::delete("{$api}/proxies/{$proxy}/toxics/latency");
+
+            if ($ms > 0) {
+                Http::post("{$api}/proxies/{$proxy}/toxics", [
+                    'name' => 'latency',
+                    'type' => 'latency',
+                    'stream' => 'downstream',
+                    'toxicity' => 1.0,
+                    'attributes' => ['latency' => $ms, 'jitter' => 0],
+                ])->throw();
+            }
+        }
+
+        $this->info($ms > 0
+            ? "Every response from MySQL and Redis now arrives {$ms} ms later."
+            : 'No added latency on MySQL and Redis.');
+    }
+)->purpose('Set the latency toxiproxy adds in front of MySQL and Redis (docker-compose.latency.yml)');

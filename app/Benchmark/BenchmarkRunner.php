@@ -31,6 +31,7 @@ class BenchmarkRunner
     /** @param list<PermissionBenchmark> $strategies */
     public function __construct(
         private readonly array $strategies,
+        private readonly RedisCommandCounter $redisCounter,
     ) {}
 
     /** @return list<BenchmarkResult> */
@@ -40,33 +41,37 @@ class BenchmarkRunner
         int $warmUpRuns = self::DEFAULT_WARM_UP_RUNS,
         int $measurementRuns = self::DEFAULT_MEASUREMENT_RUNS,
     ): array {
-        DB::enableQueryLog();
-
         $results = [];
 
         foreach ($this->strategies as $strategy) {
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+            $strategy->prepare($userId);
 
             for ($w = 0; $w < $warmUpRuns; $w++) {
-                DB::flushQueryLog();
                 $strategy->run($userId, self::PERMISSIONS, self::ROLES, $iterations);
             }
 
+            // One untimed run counts what the strategy sends to the database
+            // and to Redis; the timed runs below have every log switched off.
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->redisCounter->start();
+
+            $lastResults = $strategy->run($userId, self::PERMISSIONS, self::ROLES, $iterations);
+
+            $redisCommandCount = $this->redisCounter->stop();
+            $queryLog = DB::getQueryLog();
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+
             $times = [];
-            $queryCounts = [];
-            $lastResults = [];
-            $lastQueryLog = [];
 
             for ($m = 0; $m < $measurementRuns; $m++) {
-                DB::flushQueryLog();
                 gc_collect_cycles();
 
                 $start = microtime(true);
-                $lastResults = $strategy->run($userId, self::PERMISSIONS, self::ROLES, $iterations);
+                $strategy->run($userId, self::PERMISSIONS, self::ROLES, $iterations);
                 $times[] = (microtime(true) - $start) * 1000;
-
-                $lastQueryLog = DB::getQueryLog();
-                $queryCounts[] = count($lastQueryLog);
             }
 
             $results[] = new BenchmarkResult(
@@ -77,16 +82,15 @@ class BenchmarkRunner
                 timeP99: self::percentile($times, 99),
                 timeMean: array_sum($times) / count($times),
                 timeStdDev: self::stddev($times),
-                queryCount: $queryCounts[0],
+                queryCount: count($queryLog),
+                redisCommandCount: $redisCommandCount,
                 warmUpRuns: $warmUpRuns,
                 measurementRuns: $measurementRuns,
                 rawTimesMs: $times,
                 permissionResults: $lastResults,
-                queryLog: $lastQueryLog,
+                queryLog: $queryLog,
             );
         }
-
-        DB::disableQueryLog();
 
         return $results;
     }
