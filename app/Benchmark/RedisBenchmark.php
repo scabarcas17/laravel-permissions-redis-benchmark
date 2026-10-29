@@ -20,6 +20,11 @@ class RedisBenchmark implements PermissionBenchmark
         return 'green';
     }
 
+    public function prepare(int $userId): void
+    {
+        // The seeder warmed the Redis SETs; a miss would warm them on the first check.
+    }
+
     public function resetPerRequest(): void
     {
         // A fresh HTTP request carries no PHP process memory, so drop the resolver's

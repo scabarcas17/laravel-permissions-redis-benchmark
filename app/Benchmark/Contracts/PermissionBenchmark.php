@@ -11,6 +11,12 @@ interface PermissionBenchmark
     public function color(): string;
 
     /**
+     * Put the strategy in a known state before its warm-up runs, e.g. drop a
+     * cache entry an earlier execution left behind.
+     */
+    public function prepare(int $userId): void;
+
+    /**
      * Reset per-request in-memory state so each benchmark iteration models a
      * separate HTTP request (no PHP process memory carried over between requests).
      */

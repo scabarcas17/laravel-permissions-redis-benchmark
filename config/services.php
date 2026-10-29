@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // The proxy in front of MySQL and Redis in docker-compose.latency.yml.
+    'toxiproxy' => [
+        'url' => env('TOXIPROXY_URL', 'http://toxiproxy:8474'),
+    ],
+
 ];
